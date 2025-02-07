@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄罗斯方块</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            background-color: #fff;
+            border: 1px solid #000;
+            touch-action: none; /* 禁用触摸的默认行为 */
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="300" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const box = 30; // 方块的大小
+        const rows = canvas.height / box;
+        const cols = canvas.width / box;
+
+        // 俄罗斯方块的形状
+        const pieces = [
+            [[1, 1, 1, 1]], // I
+            [[1, 1], [1, 1]], // O
+            [[0, 1, 1], [1, 1, 0]], // S
+            [[1, 1, 0], [0, 1, 1]], // Z
+            [[1, 0, 0], [1, 1, 1]], // L
+            [[0, 0, 1], [1, 1, 1]], // J
+            [[0, 1, 0], [1, 1, 1]] // T
+        ];
+
+        let board = Array.from({ length: rows }, () => Array(cols).fill(0));
+        let currentPiece;
+        let currentPosition = { x: 4, y: 0 };
+        let gameInterval;
+
+        function createPiece() {
+            const rand = Math.floor(Math.random() * pieces.length);
+            return pieces[rand];
+        }
+
+        function resetBoard() {
+            board = Array.from({ length: rows }, () => Array(cols).fill(0));
+        }
+
+        function collide(offsetX = 0, offsetY = 0) {
+            for (let row = 0; row < currentPiece.length; row++) {
+                for (let col = 0; col < currentPiece[row].length; col++) {
+                    if (currentPiece[row][col] && (
+                        board[currentPosition.y + row + offsetY] === undefined ||
+                        board[currentPosition.y + row + offsetY][currentPosition.x + col + offsetX] === undefined ||
+                        board[currentPosition.y + row + offsetY][currentPosition.x + col + offsetX])) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function rotate() {
+            const rotatedPiece = currentPiece[0].map((_, index) =>
+                currentPiece.map(row => row[index]).reverse()
+            );
+
+            const originalPiece = currentPiece;
+            currentPiece = rotatedPiece;
+
+            if (collide()) {
+                currentPiece = originalPiece; // 如果碰撞，恢复原状
+            }
+        }
+
+        function move(direction) {
+            currentPosition.x += direction;
+
+            if (collide()) {
+                currentPosition.x -= direction; // 如果碰撞，恢复原状
+            }
+        }
+
+        function drop() {
+            currentPosition.y++;
+
+            if (collide()) {
+                currentPosition.y--;
+                merge();
+                currentPiece = createPiece();
+                currentPosition = { x: 4, y: 0 };
+
+                if (collide()) {
+                    clearInterval(gameInterval);
+                    alert('游戏结束！');
+                }
+            }
+        }
+
+        function merge() {
+            for (let row = 0; row < currentPiece.length; row++) {
+                for (let col = 0; col < currentPiece[row].length; col++) {
+                    if (currentPiece[row][col]) {
+                        board[currentPosition.y + row][currentPosition.x + col] = 1;
+                    }
+                }
+            }
+            clearLines();
+        }
+
+        function clearLines() {
+            board = board.reduce((acc, row) => {
+                if (row.every(cell => cell)) {
+                    acc.unshift(Array(cols).fill(0)); // 添加新行
+                } else {
+                    acc.push(row); // 保留原行
+                }
+                return acc;
+            }, []);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制棋盘
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    if (board[row][col]) {
+                        ctx.fillStyle = 'blue';
+                        ctx.fillRect(col * box, row * box, box, box);
+                        ctx.strokeStyle = 'black';
+                        ctx.strokeRect(col * box, row * box, box, box);
+                    }
+                }
+            }
+
+            // 绘制当前方块
+            for (let row = 0; row < currentPiece.length; row++) {
+                for (let col = 0; col < currentPiece[row].length; col++) {
+                    if (currentPiece[row][col]) {
+                        ctx.fillStyle = 'red';
+                        ctx.fillRect((currentPosition.x + col) * box, (currentPosition.y + row) * box, box, box);
+                        ctx.strokeStyle = 'black';
+                        ctx.strokeRect((currentPosition.x + col) * box, (currentPosition.y + row) * box, box, box);
+                    }
+                }
+            }
+        }
+
+        function gameLoop() {
+            drop();
+            draw();
+        }
+
+        // 触摸控制
+        canvas.addEventListener('touchstart', (event) => {
+            const touchX = event.touches[0].clientX;
+            const canvasX = canvas.getBoundingClientRect().left;
+
+            if (touchX < canvasX + canvas.width / 2) {
+                move(-1); // 左
+            } else {
+                move(1); // 右
+            }
+        });
+
+        // 增加双击旋转功能
+        canvas.addEventListener('dblclick', () => {
+            rotate(); // 双击旋转
+        });
+
+        currentPiece = createPiece();
+        gameInterval = setInterval(gameLoop, 500); // 500毫秒更新一次
+    </script>
+</body>
+</html>
